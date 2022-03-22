@@ -1,0 +1,16 @@
+GET http://localhost:3001/api/
+
+###
+GET http://localhost:3001/api/items
+
+###
+GET http://localhost:3001/api/items/1
+
+###
+GET http://localhost:3001/api/items/1/description
+
+###
+GET http://localhost:3001/api/items?q=11
+
+###
+GET http://localhost:3001/api/items?q=apple

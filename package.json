@@ -1,0 +1,20 @@
+{
+  "name": "ml-api-node",
+  "version": "1.0.0",
+  "description": "Backend on node, to manage items",
+  "main": "server.js",
+  "scripts": {
+    "start": "nodemon server.js",
+    "test": "start"
+  },
+  "author": "Juan Camilo Zapata",
+  "license": "ISC",
+  "devDependencies": {
+    "nodemon": "^2.0.15",
+    "standard": "^16.0.4"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.17.3"
+  }
+}
