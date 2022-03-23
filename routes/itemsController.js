@@ -1,82 +1,137 @@
-const express = require('express')
-const router = express.Router()
-let items = require('./itemsData')
+const express = require('express');
+const fetch = require('node-fetch');
+const router = express.Router();
+const config = require('../config');
+const okStatus = 200;
+const defaultLimit = '4';
 
-router.get('/', function (request, response) {
+const author = {
+  name: 'Juan Camilo',
+  lastname: 'Zapata',
+};
+
+async function getItemsBySearch(request, response) {
   if (JSON.stringify(request.query) !== '{}') {
-    const limit = request.query.limit
-    const item = items.filter((item) =>
-      item.item.title.toLowerCase().includes(request.query.q.toLowerCase())
-    )
-    const result = item.slice(0, limit)
-    result ? response.json(result) : response.json('vacio')
-  } else {
-    response.json(items)
-  }
-})
+    const limit = request.query.limit ?? defaultLimit;
+    const queryRequest = request.query.q.toLowerCase();
+    const itemsResponseRaw = await fetch(
+      `${config.apiMELI}/sites/MLA/search?q=${queryRequest}&limit=${limit}`
+    );
 
-router.get('/:id', function (request, response) {
-  getItemsById(request, response)
-})
+    if (itemsResponseRaw.status === okStatus) {
+      let categoriesList = [];
+      const itemsResponseJSON = await itemsResponseRaw.json();
+      const itemsResult = itemsResponseJSON.results.map(item => {
+        const items = {
+          id: item.id,
+          title: item.title,
+          price: {
+            currency: item.prices.prices[0].currency_id,
+            amount: item.price,
+            decimals: 0,
+          },
+          picture: item.thumbnail,
+          condition: item.condition,
+          free_shipping: item.shipping.free_shipping,
+          stateName: item.address.state_name
+        };
+        return items;
+      });
 
-router.get('/:id/description', function (request, response) {
-  getItemsById(request, response)
-})
+      const categoriesResults = itemsResponseJSON.available_filters.filter(
+        cat => cat.id === 'category'
+      );
 
-router.post('/', (request, response) => {
-  const reqItem = request.body
-  const ids = items.map((item) => item.item.id)
-  const maxId = Math.max(...ids) + 1
+      if (categoriesResults.length !== 0) {
+        const maxCategory = categoriesResults[0].values.reduce(
+          (previousValue, currentValue) =>
+            previousValue.results > currentValue.results
+              ? previousValue
+              : currentValue
+        );
 
-  console.log(reqItem)
-  const newItem = {
-    author: {
-      name: 'Juan Camilo',
-      lastname: 'Zapata'
-    },
-    item: {
-      id: maxId,
-      title: reqItem.item.title,
-      price: {
-        currency: 'Pesos',
-        amount: 1,
-        decimals: 2
-      },
-      picture: '/asd/asdasd/',
-      condition: 'Nuevo',
-      free_shipping:
-        typeof reqItem.item.free_shipping !== 'undefined'
-          ? reqItem.item.free_shipping
-          : false,
-      sold_quantity: 2,
-      description: 'Ipad adsad'
-    }
-  }
+        const itemCategoriesResponseRaw = await fetch(
+          `${config.apiMELI}/categories/${maxCategory.id}`
+        );
 
-  items = [...items, newItem]
+        if (itemCategoriesResponseRaw.status === okStatus) {
+          const itemCategoriesJSON = await itemCategoriesResponseRaw.json();
+          categoriesList = itemCategoriesJSON.path_from_root.map(
+            cat => cat.name
+          );
+        }
+      }
 
-  response.json(newItem)
-})
+      const items = {
+        author: author,
+        categories: categoriesList,
+        items: itemsResult,
+      };
 
-router.put('/', (request, response) => {
-  response.send('NOT IMPLEMENTED')
-})
-
-router.delete('/:id', (request, response) => {
-  const id = Number(request.params.id)
-  items = items.filter((item) => item.item.id !== id)
-  response.status(200).end()
-})
-
-function getItemsById (request, response) {
-  const id = Number(request.params.id)
-  const item = items.find((item) => item.item.id === id)
-
-  if (item) {
-    response.json(item)
-  } else {
-    response.status(404).end()
-  }
+      response.status(okStatus).json(items);
+    } else
+      response
+        .status(itemsResponseRaw.status)
+        .send('Status ' + itemsResponseRaw.status).end;
+  } else response.status(400).send('Bad request').end;
 }
 
-module.exports = router
+router.get('/', function (request, response) {
+  getItemsBySearch(request, response);
+});
+
+async function getItemsById(request, response) {
+  const id = request.params.id;
+
+  const itemResponseRaw = await fetch(`${config.apiMELI}/items/${id}`);
+  const itemDescriptionResponseRaw = await fetch(
+    `${config.apiMELI}/items/${id}/description`
+  );
+
+  if (
+    itemResponseRaw.status === okStatus &&
+    itemDescriptionResponseRaw.status === okStatus
+  ) {
+    const itemResponseJSON = await itemResponseRaw.json();
+    const itemDescriptionResponseJSON = await itemDescriptionResponseRaw.json();
+    let categoriesList = [];
+
+    const itemCategoriesResponseRaw = await fetch(
+      `${config.apiMELI}/categories/${itemResponseJSON.category_id}`
+    );
+
+    if (itemCategoriesResponseRaw.status === okStatus) {
+      const itemCategoriesJSON = await itemCategoriesResponseRaw.json();
+      categoriesList = itemCategoriesJSON.path_from_root.map(cat => cat);
+    }
+
+    const item = {
+      author: author,
+      categories: categoriesList,
+      item: {
+        id: itemResponseJSON.id,
+        title: itemResponseJSON.title,
+        price: {
+          currency: itemResponseJSON.currency_id,
+          amount: itemResponseJSON.price,
+          decimals: 0,
+        },
+        picture: itemResponseJSON.pictures[0].url,
+        condition: itemResponseJSON.condition,
+        free_shipping: itemResponseJSON.shipping.free_shipping,
+        sold_quantity: itemResponseJSON.sold_quantity,
+        description: itemDescriptionResponseJSON.plain_text,
+      },
+    };
+    response.status(okStatus).json(item);
+  } else
+    response
+      .status(itemResponseRaw.status)
+      .send('Status ' + itemResponseRaw.status).end;
+}
+
+router.get('/:id', function (request, response) {
+  getItemsById(request, response);
+});
+
+module.exports = router;
