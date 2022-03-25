@@ -2,8 +2,6 @@ const express = require('express')
 const cors = require('cors')
 const ItemsController = require('./routes/itemsController')
 
-const notFound = require('./middleware/notFound.js')
-const handleErrors = require('./middleware/handleErrors.js')
 const app = express()
 
 app.use(cors())
@@ -18,7 +16,8 @@ app.get('/api', (request, response) => {
 
 app.use('/api/items', ItemsController)
 
-app.use(notFound)
-app.use(handleErrors) // TODO
+app.use(function (err, req, res, next) {
+  res.status(err.message).end()
+})
 
 module.exports = app

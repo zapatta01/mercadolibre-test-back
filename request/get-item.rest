@@ -1,16 +1,13 @@
 GET http://localhost:3001/api/
 
 ###
-GET http://localhost:3001/api/items
-
-###
-GET http://localhost:3001/api/items/1
-
-###
-GET http://localhost:3001/api/items/1/description
-
-###
-GET http://localhost:3001/api/items?q=11
+GET http://localhost:3001/api/items/MLA1119132260
 
 ###
 GET http://localhost:3001/api/items?q=apple
+
+### Sin Categorias
+GET http://localhost:3001/api/items?q=televisor
+
+### Not Found
+GET http://localhost:3001/api/ite
